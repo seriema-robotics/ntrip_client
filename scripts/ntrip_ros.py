@@ -154,7 +154,7 @@ class NTRIPRos(NTRIPRosBase):
     }
     return TriggerResponse(success=True, message=json.dumps(status_data))
 
-  def handle_get_mountpoints(self, req, default_host='127.0.0.1', default_port=2101, socket_timeout=5.0, buffer_size=4096):
+  def handle_get_mountpoints(self, req, default_host='127.0.0.1', default_port=2101, socket_timeout=5.0, buffer_size=4096, filter_keyword="RTCM"):
     from std_srvs.srv import TriggerResponse
     import socket
     import json
@@ -188,7 +188,10 @@ class NTRIPRos(NTRIPRosBase):
       for line in content.splitlines():
         if line.startswith('STR;'):
           parts = line.split(';')
-          if len(parts) > 1:
+          if len(parts) > 3:
+            if filter_keyword in parts[3].upper():
+              mountpoints.append(parts[1])
+          elif len(parts) > 1:
             mountpoints.append(parts[1])
             
       return TriggerResponse(success=True, message=json.dumps(mountpoints))
