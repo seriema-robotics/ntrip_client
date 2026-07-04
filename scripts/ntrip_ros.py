@@ -154,9 +154,9 @@ class NTRIPRos(NTRIPRosBase):
     }
     return TriggerResponse(success=True, message=json.dumps(status_data))
 
-  def handle_get_mountpoints(self, req, default_host='127.0.0.1', default_port=2101):
+  def handle_get_mountpoints(self, req, default_host='127.0.0.1', default_port=2101, socket_timeout=5.0, buffer_size=4096):
     from std_srvs.srv import TriggerResponse
-    import urllib.request
+    import socket
     import json
     
     host = rospy.get_param('~host', default_host)
@@ -165,12 +165,24 @@ class NTRIPRos(NTRIPRosBase):
     except ValueError:
       port = rospy.get_param('~port', default_port)
 
-    url = "http://{}:{}/".format(host, port)
-    rospy.loginfo("Fetching NTRIP sourcetable from %s", url)
+    rospy.loginfo("Fetching NTRIP sourcetable from %s:%s", host, port)
     try:
-      req_http = urllib.request.Request(url, headers={'User-Agent': 'NTRIP Client/1.0'})
-      with urllib.request.urlopen(req_http, timeout=5.0) as response:
-        content = response.read().decode('utf-8', errors='ignore')
+      sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+      sock.settimeout(socket_timeout)
+      sock.connect((host, port))
+      
+      request_str = "GET / HTTP/1.0\r\nUser-Agent: NTRIP Client/1.0\r\n\r\n"
+      sock.sendall(request_str.encode('utf-8'))
+      
+      response_data = b""
+      while True:
+        chunk = sock.recv(buffer_size)
+        if not chunk:
+          break
+        response_data += chunk
+      sock.close()
+      
+      content = response_data.decode('utf-8', errors='ignore')
       
       mountpoints = []
       for line in content.splitlines():
@@ -181,7 +193,7 @@ class NTRIPRos(NTRIPRosBase):
             
       return TriggerResponse(success=True, message=json.dumps(mountpoints))
     except Exception as e:
-      err_msg = "Failed to fetch sourcetable from {}: {}".format(url, str(e))
+      err_msg = "Failed to fetch sourcetable from {}:{}: {}".format(host, port, str(e))
       rospy.logerr(err_msg)
       return TriggerResponse(success=False, message=err_msg)
 
