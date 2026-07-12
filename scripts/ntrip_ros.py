@@ -82,6 +82,34 @@ class NTRIPRos(NTRIPRosBase):
     self._get_status_service = rospy.Service('~get_status', Trigger, self.handle_get_status)
     self._get_mountpoints_service = rospy.Service('~get_mountpoints', Trigger, self.handle_get_mountpoints)
 
+  def run(self):
+    from sensor_msgs.msg import NavSatFix
+    from nmea_msgs.msg import Sentence
+
+    # Setup a shutdown hook
+    rospy.on_shutdown(self.stop)
+
+    # Setup our subscriber
+    self._nmea_sub = rospy.Subscriber('nmea', Sentence, self.subscribe_nmea, queue_size=10)
+    self._fix_sub = rospy.Subscriber('fix', NavSatFix, self.subscribe_fix, queue_size=10)
+
+    # Check if we should connect on start
+    enabled = rospy.get_param('~enabled', True)
+    if enabled:
+      # Connect the client
+      if self._client.connect():
+        # Start the timer that will check for RTCM data
+        self._rtcm_timer = rospy.Timer(rospy.Duration(0.1), self.publish_rtcm)
+        rospy.loginfo('Successfully connected to NTRIP server on startup.')
+      else:
+        rospy.logwarn('Unable to connect to NTRIP server on startup, but keeping node alive.')
+    else:
+      rospy.loginfo('NTRIP client initialized in disabled state.')
+
+    # Spin until we are shutdown
+    rospy.spin()
+    return 0
+
   def handle_restart(self, req, default_host='127.0.0.1', default_port=2101, default_mountpoint='mount', default_rtcm_timeout=NTRIPClient.DEFAULT_RTCM_TIMEOUT_SECONDS):
     from std_srvs.srv import TriggerResponse
     import base64
@@ -95,6 +123,12 @@ class NTRIPRos(NTRIPRosBase):
 
     # 2. Disconnect current connection
     self._client.disconnect()
+
+    # Check if enabled
+    enabled = rospy.get_param('~enabled', True)
+    if not enabled:
+      rospy.loginfo("NTRIP client is disabled. Not reconnecting.")
+      return TriggerResponse(success=True, message="NTRIP client disconnected and disabled.")
 
     # 3. Reload params from parameter server
     host = rospy.get_param('~host', default_host)
@@ -145,6 +179,7 @@ class NTRIPRos(NTRIPRosBase):
     import json
     
     status_data = {
+      "enabled": rospy.get_param('~enabled', True),
       "connected": getattr(self._client, "_connected", False),
       "host": getattr(self._client, "_host", ""),
       "port": getattr(self._client, "_port", ""),
