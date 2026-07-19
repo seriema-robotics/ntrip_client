@@ -1,46 +1,60 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(ntrip_client)
 
-## Find catkin macros and libraries
-## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
-## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS
-  rospy
-  std_msgs
-  rtcm_msgs
-  nmea_msgs
-)
+# Check if catkin is available
+find_package(catkin QUIET)
 
-###################################
-## catkin specific configuration ##
-###################################
-## The catkin_package macro generates cmake config files for your package
-## Declare things to be passed to dependent projects
-## INCLUDE_DIRS: uncomment this if your package contains header files
-## LIBRARIES: libraries you create in this project that dependent projects also need
-## CATKIN_DEPENDS: catkin_packages dependent projects also need
-## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-  CATKIN_DEPENDS
+if(catkin_FOUND)
+  message(STATUS "Building ntrip_client as a ROS 1 Catkin package")
+  find_package(catkin REQUIRED COMPONENTS
     rospy
     std_msgs
     rtcm_msgs
     nmea_msgs
-)
+  )
+  
+  catkin_package(
+    CATKIN_DEPENDS
+      rospy
+      std_msgs
+      rtcm_msgs
+      nmea_msgs
+  )
+  
+  # Install scripts
+  catkin_install_python(PROGRAMS
+    scripts/ntrip_ros.py
+    scripts/ntrip_serial_device_ros.py
+    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+  
+  # Set up python modules
+  catkin_python_setup()
+  
+  # Install launch files
+  install(DIRECTORY launch/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)
 
-#############
-## Install ##
-#############
+else()
+  # Look for ament_cmake
+  find_package(ament_cmake REQUIRED)
+  find_package(ament_cmake_python REQUIRED)
+  message(STATUS "Building ntrip_client as a ROS 2 Ament package")
+  
+  # Install the Python package (from src/ntrip_client)
+  ament_python_install_package(${PROJECT_NAME})
+  
+  # Install executable scripts
+  install(PROGRAMS
+    scripts/ntrip_ros2.py
+    scripts/ntrip_ros2_base.py
+    scripts/ntrip_serial_device_ros2.py
+    DESTINATION lib/${PROJECT_NAME}
+  )
+  
+  # Install launch files
+  install(DIRECTORY launch/
+    DESTINATION share/${PROJECT_NAME}/launch
+  )
 
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-catkin_install_python(PROGRAMS
-  scripts/ntrip_ros.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
-## Mark python modules for installation
-catkin_python_setup()
-
-## Install the launch files
-install(DIRECTORY launch/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)
+  ament_package()
+endif()
