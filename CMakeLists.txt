@@ -41,7 +41,7 @@ else()
   message(STATUS "Building ntrip_client as a ROS 2 Ament package")
   
   # Install the Python package (from src/ntrip_client)
-  ament_python_install_package(${PROJECT_NAME})
+  ament_python_install_package(${PROJECT_NAME} PACKAGE_DIR "src/${PROJECT_NAME}")
   
   # Install executable scripts
   install(PROGRAMS
