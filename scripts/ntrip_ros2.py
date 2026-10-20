@@ -5,8 +5,17 @@ import sys
 import json
 import base64
 import socket
+import signal
 
 import rclpy
+from rclpy.executors import ExternalShutdownException
+try:
+    from rclpy.exceptions import RCLError
+except ImportError:
+    try:
+        from rclpy._rclpy_pybind11 import RCLError
+    except ImportError:
+        class RCLError(Exception): pass
 from std_srvs.srv import Trigger
 
 from ntrip_ros2_base import NTRIPRosBase
@@ -256,19 +265,31 @@ class NTRIPRos(NTRIPRosBase):
     return response
 
 if __name__ == '__main__':
-  # Start the node
-  rclpy.init()
-  node = NTRIPRos()
-  if not node.run():
-    sys.exit(1)
   try:
-    # Spin until we are shut down
-    rclpy.spin(node)
-  except KeyboardInterrupt:
+    rclpy.init()
+    node = NTRIPRos()
+    if not node.run():
+      sys.exit(1)
+    try:
+      rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException, RCLError):
+      pass
+    finally:
+      try:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+      except Exception:
+        pass
+      try:
+        node.stop()
+      except Exception:
+        pass
+      try:
+        if hasattr(rclpy, 'try_shutdown'):
+          rclpy.try_shutdown()
+        elif rclpy.ok():
+          rclpy.shutdown()
+      except Exception:
+        pass
+  except (KeyboardInterrupt, ExternalShutdownException):
     pass
-  except BaseException as e:
-    raise e
-  finally:
-    node.stop()
-    # Shutdown the node and stop rclpy
-    rclpy.shutdown()

@@ -105,14 +105,22 @@ class NTRIPRosBase(Node):
     return True
 
   def stop(self):
-    self.get_logger().info('Stopping RTCM publisher')
-    if self._rtcm_timer:
-      self._rtcm_timer.cancel()
-      self.destroy_timer(self._rtcm_timer)
-    self.get_logger().info('Disconnecting NTRIP client')
-    self._client.disconnect()
-    self.get_logger().info('Shutting down node')
-    self.destroy_node()
+    try:
+      if hasattr(self, '_rtcm_timer') and self._rtcm_timer:
+        self._rtcm_timer.cancel()
+        self.destroy_timer(self._rtcm_timer)
+        self._rtcm_timer = None
+    except Exception:
+      pass
+    try:
+      if hasattr(self, '_client') and self._client:
+        self._client.disconnect()
+    except Exception:
+      pass
+    try:
+      self.destroy_node()
+    except Exception:
+      pass
 
   def subscribe_nmea(self, nmea):
     # Just extract the NMEA from the message, and send it right to the server
