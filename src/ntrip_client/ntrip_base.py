@@ -51,10 +51,10 @@ class NTRIPBase:
         self._reconnect_attempt_count += 1
         self.disconnect()
         connect_success = self.connect()
-        if not connect_success and self._reconnect_attempt_count < self.reconnect_attempt_max:
+        if not connect_success and (self.reconnect_attempt_max <= 0 or self._reconnect_attempt_count < self.reconnect_attempt_max):
           self._logerr('Reconnect failed. Retrying in {} seconds'.format(self.reconnect_attempt_wait_seconds))
           time.sleep(self.reconnect_attempt_wait_seconds)
-        elif self._reconnect_attempt_count >= self.reconnect_attempt_max:
+        elif self.reconnect_attempt_max > 0 and self._reconnect_attempt_count >= self.reconnect_attempt_max:
           self._reconnect_attempt_count = 0
           raise Exception("Reconnect was attempted {} times, but never succeeded".format(self._reconnect_attempt_count))
         elif connect_success:
